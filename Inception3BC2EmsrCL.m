@@ -15,8 +15,15 @@ end
 dataFolderTmpl = '~/data/BC2E_Sfx';
 dataFolderSfx = '1072x712';
 
+kfold_pref = "5+s4nm2-s4nm1";
+
 % Create imageDataset of all images in selected baseline folders
-[baseSet, dataSetFolder] = createBCbaselineE(dataFolderTmpl, dataFolderSfx, @readFunctionTrainIN_n);
+%[baseSet, dataSetFolder] = createBCbaselineE1(dataFolderTmpl, dataFolderSfx, @readFunctionTrainIN_n);
+%[baseSet, dataSetFolder] = createBCbaselineE2(dataFolderTmpl, dataFolderSfx, @readFunctionTrainIN_n);
+%[baseSet, dataSetFolder] = createBCbaselineE3(dataFolderTmpl, dataFolderSfx, @readFunctionTrainIN_n);
+%[baseSet, dataSetFolder] = createBCbaselineE4(dataFolderTmpl, dataFolderSfx, @readFunctionTrainIN_n);
+[baseSet, dataSetFolder] = createBCbaselineE5(dataFolderTmpl, dataFolderSfx, @readFunctionTrainIN_n);
+
 trainingSet = baseSet;
 
 % Count number of the classes ('stable' - presrvation of the order - to use
@@ -37,31 +44,26 @@ t1 = clock();
 %% Swarm of models
 nModels = 7;
 myNets = [];
-save_net_fileT = '/media/data2/in_eswarm';
+save_net_fileT = '~/data/in_eswarm';
 %save_s1net_fileT = '/media/data2/in_eswarm1_sv';
-save_s2net_fileT = '/media/data2/in_eswarm2CL_sv';
+save_s2net_fileT = '~/data/in_eswarm2CL_sv';
 
 for s=1:nModels
     n_ll = 315;
     % Load saved model if exists
-    save_net_file = strcat(save_net_fileT, int2str(s), '.mat');
+    save_net_file = strcat(save_net_fileT, int2str(s), kfold_pref, '.mat');
     if isfile(save_net_file)
         load(save_net_file, 'myNet');
     end
        
     if exist('myNet') == 0
-        % Load Pre-trained Network (AlexNet)   
-        % AlexNet is a pre-trained network trained on 1000 object categories. 
-        %alex = alexnet;
+        % Load Pre-trained Network 
         incept3 = inceptionv3;
 
         %% Review Network Architecture 
         lgraph_r = layerGraph(incept3);
 
         %% Modify Pre-trained Network 
-        % AlexNet was trained to recognize 1000 classes, we need to modify it to
-        % recognize just nClasses classes. 
-        %n_ll = 315;
 
         lgraph = replaceLayer(lgraph_r, 'predictions', fullyConnectedLayer(nClasses, 'Name', 'predictions'));
         lgraph = replaceLayer(lgraph, 'ClassificationLayer_predictions', classificationLayer('Name', 'ClassificationLayer_predictions'));
@@ -143,7 +145,11 @@ end
 
 %% Reliability training datasets
 % Create imageDataset vector of images in selected makeup folders
-[testRSets, testRDataSetFolders] = createBCtestE1(dataFolderTmpl, dataFolderSfx, @readFunctionTrainIN_n);
+%[testRSets, testRDataSetFolders] = createBCtestE1(dataFolderTmpl, dataFolderSfx, @readFunctionTrainIN_n);
+%[testRSets, testRDataSetFolders] = createBCtestE2(dataFolderTmpl, dataFolderSfx, @readFunctionTrainIN_n);
+%[testRSets, testRDataSetFolders] = createBCtestE3(dataFolderTmpl, dataFolderSfx, @readFunctionTrainIN_n);
+%[testRSets, testRDataSetFolders] = createBCtestE4(dataFolderTmpl, dataFolderSfx, @readFunctionTrainIN_n);
+[testRSets, testRDataSetFolders] = createBCtestE5(dataFolderTmpl, dataFolderSfx, @readFunctionTrainIN_n);
 
 t1 = clock();
 
@@ -178,7 +184,6 @@ nMem = 8192;
 nCLOut = nRealCLOut + nTrOut + 2*nMem;
 
 VerdS = zeros([nImgsTot nCLOut]);
-%VerdSt = zeros([nImgsTot 1]);
 
 
 %% Populate Matrix of Softmax Activations
@@ -212,7 +217,6 @@ end
 
 %% Collect the strongest softmax of models and flatten ensamble verdict vector
 % (Another place to add supervisor to rank models based of its core)
-%Strong(:, :) = mean(ActC(:, :, :), 2);
 Strong(:, :) = ActC(:, 1, :);
 
 
@@ -227,11 +231,9 @@ for k=1:nImgsTot
         s = IStrong(k, si);
         
         ActS(k, nClasses*(si-1)+1:nClasses*si) = Act(k, I(k, :, IStrong(k, 1)), s);
-        %ActSt(k, nClasses*(si-1)+1:nClasses*si) = Act(k, I(k, :, IStrong(k, 1)), s);
         
     end
     VerdS(k,1) = sum(Verd(k, :), 2);
-    %VerdSt(k,1) = sum(Verd(k, :), 2);
     ActS(k, nClasses*nModels+dimLabel) = VerdS(k,1);
 
 end
@@ -243,15 +245,8 @@ end
 
 
 %% Train Supervisor model
-%global Mstate;
-%global MstateFill;
-%global MstateCurr;
 
-%nMem = 100;
-%Mstate = zeros([2, nMem]);
-%MstateFill = 0;
-
-save_s2net_file = strcat(save_s2net_fileT, int2str(nModels), '.mat');
+save_s2net_file = strcat(save_s2net_fileT, int2str(nModels), kfold_pref, '.mat');
 %if isfile(save_s2net_file)
 %    load(save_s2net_file, 'super2Net');
 %else
@@ -260,23 +255,13 @@ save_s2net_file = strcat(save_s2net_fileT, int2str(nModels), '.mat');
 
 Yt = categorical(VerdS');
 [nDim, nVerdicts] =  size(countcats(Yt));
-%VerdS( VerdS(:,1) > (nDim-1)/2., 2) = 1.;
 
 %if exist('super2Net') == 0
     
-    %Yt = categorical(VerdS');
-    %[nDim, nVerdicts] =  size(countcats(Yt));
     nLayer1 = nClasses*nModels+1+dimLabel;
     nLayer2 = 2*nClasses*nModels+1+dimLabel;
     nLayer3 = 2*nClasses*nModels+1+dimLabel;
 
-    %nRealCLOut = 1;
-    %nMem = 100;
-    %nCLOut = nRealCLOut + 1 + 2*nMem;
-
-    %layer = fullyConnectedCLLayer("L3", nLayer2, nCLOut, nDim-1, nMem);
-    %inputSize = [nLayer2, 12];
-    %checkLayer(layer, inputSize);
 
         sOptions = trainingOptions('adam', ...
         'ExecutionEnvironment','gpu',...
@@ -330,7 +315,9 @@ mkDataSetFolder = strings(0);
 mkLabel = strings(0);
 
 % Create imageDataset vector of images in selected makeup folders
+% Groupped test set
 %[testSets, testDataSetFolders] = createBCtestE(dataFolderTmpl, dataFolderSfx, @readFunctionTrainIN_n);
+% Shuffled test set
 [testSets, testDataSetFolders] = createBCtestEWhole(dataFolderTmpl, dataFolderSfx, @readFunctionTrainIN_n);
 
 %%
@@ -341,7 +328,7 @@ mkTable = cell(nMakeups, nClasses+4);
 %%
 
 % Write per-image scores to a file
-fd = fopen( strcat('predict_in_6bfmsrTr',int2str(nModels),'.txt'),'w' );
+fd = fopen( strcat('predict_in_6bfmsrTr',int2str(nModels), kfold_pref, '.txt'),'w' );
 
 fprintf(fd, "CorrectClass MeanPredictScore PredictClassMax PredictClassTr TrustScore TrustThresholdTr TrustThresholdCurr TrustFlag05 TrustFlagTr TrustFlagCurr TrustScoreLb FileName");
 for l=1:nClasses
@@ -407,17 +394,9 @@ end
 %% Sorted activations of model candidates
 [ActTC, IT] = sort(ActT, 2, 'descend');
 
-%for s=1:nModels
-%    super2Scores = predict(mySuper1Nets(s), ActTC(:, :, s));
-%    Act2T(:, s) = super2Scores(:, 2);
-%end        
-
-%[LikelyTC, ILikelyT] = sort(Act2T, 2, 'descend');
-
 
 % Collect the strongest softmax of models and flatten ensamble verdict vector
 % (Another place to add supervisor to rank models based of its core)
-%StrongT(:, :) = mean(ActTC(:, :, :), 2);
 StrongT(:, :) = ActTC(:, 1, :);
 
 %% Sort other models by their strongest softmax 
@@ -437,7 +416,7 @@ for k=1:nImgsTot
     ActTS(k, nClasses*nModels+dimLabel) = VerdTS(k,1);
 end   
 
-%%
+%% Unbcertainty Descriptor visualization
 for k=1:nImgsTot
     %bar(ActTS(k,1:nClasses*nModels));
     stairs(ActTS(k,1:nClasses*nModels));
@@ -457,7 +436,6 @@ end
 % Supervisor network
 supervisorPredictedScores = zeros([nImgsTot nCLOut]);
 
-%%supervisorPredictedLabels = classify(super2Net, ActTS); 
 %supervisorPredictedScores = predict(super2Net, ActTS);
 %supervisorPredictedScores = predictAndUpdateState(super2Net, ActTS);
 
@@ -530,12 +508,14 @@ for i=1:nMakeups
         end
         fprintf(fd, "\n");
 
-        sLayers = super2Net.Layers;
-        sgraph = layerGraph(sLayers);
-        super2Net = trainNetwork(ActTS(nImgsCur+k, :), VerdTS(nImgsCur+k, :), sgraph, sOptions2);
+        % Naive continoius learning, retrain every prediction
+        %sLayers = super2Net.Layers;
+        %sgraph = layerGraph(sLayers);
+        %super2Net = trainNetwork(ActTS(nImgsCur+k, :), VerdTS(nImgsCur+k, :), sgraph, sOptions2);
         
     end
 
+    % Naive continoius learning, retrain in groups
     %%sLayers = super2Net.Layers;
     %%sgraph = layerGraph(sLayers);
     %%super2Net = trainNetwork(ActTS(1+nImgsCur:nImgsCur+nImages, :), VerdTS(1+nImgsCur:nImgsCur+nImages, :), sgraph, sOptions2);

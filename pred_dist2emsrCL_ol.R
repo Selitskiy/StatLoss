@@ -9,17 +9,17 @@ library(psych)
 library(reshape2)
 
 # Set working directory
-setwd("~/Documents/BookClub/BC2EmoCL")
+setwd("~/BookClub/BC2EmoCL")
 
 
 # Load Expression Recognition Heatmap, removing headers
 #grep "\"" result_in_6bfemsr6.txt > result_in_6bfemsr6_nh.txt
 
-in_name <- "predict_in_6bmsrTr7_8192_01_200_ol.txt"
+in_name <- "predict_in_6bfmsrTr7_8192_01_200_ol.txt"
 in_test <- read.delim(in_name, sep = "", header = T, na.strings = " ", fill = T)
-in_name2 <- "predict_in_6bmsrTr7_8192_01_200_wol.txt"
+in_name2 <- "predict_in_6bfmsrTr7_8192_01_200_wol.txt"
 in_test2 <- read.delim(in_name2, sep = "", header = T, na.strings = " ", fill = T)
-in_name3 <- "predict_in_6bmsrTr7_8192_01_200_nol.txt"
+in_name3 <- "predict_in_6bfmsrTr7_8192_01_200_nol.txt"
 in_test3 <- read.delim(in_name3, sep = "", header = T, na.strings = " ", fill = T)
 mr <- nrow(in_test)
 
@@ -120,7 +120,7 @@ ggplot(data=t4, aes(x = as.numeric(row.names(t4)))) +
 
 
 #Accuracy - trust threshold diagramm
-t5 <- in_test[,1:11]
+t5 <- in_test3[,1:11]
 for (i in 1:mr){
   tmp <- unlist(strsplit(as.character(in_test[i,11]), "/"))
   tl <- length(tmp)
@@ -208,7 +208,6 @@ rc <- tp_cur / (tp_cur + fn_cur)
 
 tr_mean <- tr_ac / (i - i_s)
 df[nrow(df) + 1,1:5] <- c(tr_mean, ac, ac_t, pr, rc)
-#names(df) <- c("Tr_mean", "Acc", "Acc_t", "Precission", "Recall")
 
 ggplot(data=df, aes(x = V1)) +
   #geom_point(color = 'black', aes(y=V2)) + 
