@@ -12,8 +12,8 @@ library(reshape2)
 fpath <- "~/Documents/BookClub/BC2EmoCL"
 setwd(fpath)
 
-in_nameT <- "predict_in_6bmsrTr7*.txt"
-flist <- list.files(path = fpath, pattern = "predict_in_6bmsrTr7kf*")
+#in_nameT <- "predict_in_6bmsrTr7*.txt"
+flist <- list.files(path = fpath, pattern = "predict_in_6bfmsrTr7kf*")
 
 df1 <- data.frame(matrix(ncol = 6, nrow = 0))
 colnames(df1) <- c("a", "ta", "p", "r", "f", "s")

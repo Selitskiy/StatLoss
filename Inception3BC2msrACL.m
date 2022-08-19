@@ -13,7 +13,7 @@ dataFolderSfx = '1072x712';
 kfold_pref = "";
 
 
-% Create imageDataset of all images in selected baseline folders
+% Create imageDataset of all images in selected baseline folders (5 possible folds)
 [baseSet, dataSetFolder] = createBCbaselineIDS6b1(dataFolderTmpl, dataFolderSfx, @readFunctionTrainIN_n);
 %[baseSet, dataSetFolder] = createBCbaselineIDS6b2(dataFolderTmpl, dataFolderSfx, @readFunctionTrainIN_n);
 %[baseSet, dataSetFolder] = createBCbaselineIDS6b3(dataFolderTmpl, dataFolderSfx, @readFunctionTrainIN_n);
@@ -151,7 +151,7 @@ end
 
 
 %% Reliability training datasets
-% Create imageDataset vector of images in selected makeup folders
+% Create imageDataset vector of images in selected makeup folders (5 possible folds)
 [testRSets, testRDataSetFolders] = createBCtestIDSvect6b1(dataFolderTmpl, dataFolderSfx, @readFunctionTrainIN_n);
 %[testRSets, testRDataSetFolders] = createBCtestIDSvect6b2(dataFolderTmpl, dataFolderSfx, @readFunctionTrainIN_n);
 %[testRSets, testRDataSetFolders] = createBCtestIDSvect6b3(dataFolderTmpl, dataFolderSfx, @readFunctionTrainIN_n);
@@ -219,32 +219,7 @@ for i=1:nMakeups
     
 end
 
-%% Sorted activations of model candidates
-%[ActC, I] = sort(Act, 2, 'descend');
-
-
-%% Collect the strongest softmax of models and flatten ensamble verdict vector
-%Strong(:, :) = ActC(:, 1, :);
-
-
-%% Sort other models by their strongest softmax 
-%[StrongC, IStrong] = sort(Strong, 2, 'descend');
-
-% And sort their softmax activations in the same way as activations
-% in the model with strongest right softmax
-%for k=1:nImgsTot
-%    for si=1:nModels
-        
-%        s = IStrong(k, si);
-        
-%        ActS(k, nClasses*(si-1)+1:nClasses*si) = Act(k, I(k, :, IStrong(k, 1)), s);
-
-%    end
-
-%    VerdS(k,1) = sum(Verd(k, :), 2);
-%    ActS(k, nClasses*nModels+1) = VerdS(k,1);
-
-%end
+%% Build Uncertainty Shape Descriptor 
 [ActS, VerdS] = makeUSDstrong(Act, Verd, ActS, VerdS, nClasses, 0, nImgsTot, nModels, dimLabel);
 
 
@@ -301,11 +276,9 @@ Yt = categorical(VerdS');
     % Verify
     %supervisorPredictedScorest = predict(super2Nett, ActSt);
     %rmset = sqrt( sum(( (supervisorPredictedScorest - VerdSt) .^ 2), 'all') );
-
     supervisorPredictedScores = predict(super2Net, ActS);
     rmse = sqrt( sum(( (supervisorPredictedScores - VerdS) .^ 2), 'all') );
     TrTrain = supervisorPredictedScores(1, 2);
-
     %rmsv = sqrt( sum(( (supervisorPredictedScores - supervisorPredictedScorest) .^ 2), 'all') );
 
     
@@ -316,20 +289,6 @@ Yt = categorical(VerdS');
 t2 = clock();
 fprintf('Incept3 Supervisor training N images:%d time:%.3f, models %d\n', nImgsTot, etime(t2, t1), nModels);
 
-
-%% Makeup datasets
-mkDataSetFolder = strings(0);
-mkLabel = strings(0);
-
-% Create imageDataset vector of images in selected makeup folders
-%[testSets, testDataSetFolders] = createBCtestIDSvect6b(dataFolderTmpl, dataFolderSfx, @readFunctionTrainIN_n);
-[testSets, testDataSetFolders] = createBCtestIDSvect6bWhole(dataFolderTmpl, dataFolderSfx, @readFunctionTrainIN_n);
-
-%%
-[nMakeups, ~] = size(testSets);
-
-mkTable = cell(nMakeups, nClasses+4);
-
 %% Continous and Active and MCMC-like Active flags
 contF = 1;
 c_pref = '';
@@ -337,7 +296,12 @@ if contF
     c_pref = strcat(c_pref, 'c');
 end
 
-nOrcaleLimit = 0; %0.001;
+structF = 1;
+if structF
+    c_pref = strcat(c_pref, 's');
+end
+
+nOrcaleLimit = 0.001;
 if nOrcaleLimit > 0
     c_pref = strcat(c_pref, num2str(nOrcaleLimit), 'a');
 end
@@ -347,8 +311,26 @@ if mcmcF
     c_pref = strcat(c_pref, 'm');
 end
 
+%% Makeup datasets
+mkDataSetFolder = strings(0);
+mkLabel = strings(0);
 
-% Write per-image scores to a file
+% Create imageDataset vector of images in selected makeup folders
+if structF
+    [testSets, testDataSetFolders] = createBCtestIDSvect6b(dataFolderTmpl, dataFolderSfx, @readFunctionTrainIN_n);
+else
+    [testSets, testDataSetFolders] = createBCtestIDSvect6bWhole(dataFolderTmpl, dataFolderSfx, @readFunctionTrainIN_n);
+end
+
+%%
+[nMakeups, ~] = size(testSets);
+
+mkTable = cell(nMakeups, nClasses+4);
+
+
+
+
+%% Write per-image scores to a file
 fd = fopen( strcat('predict_in_6bmsrTr',int2str(nModels), kfold_pref, c_pref, '.txt'),'w' );
 
 fprintf(fd, "CorrectClass MeanPredictScore PredictClassMax PredictClassTr TrustScore TrustThresholdTr TrustThresholdCurr TrustFlag05 TrustFlagTr TrustFlagCurr TrustScoreLb FileName");
@@ -466,26 +448,30 @@ for i=1:nMakeups
             predictedScoresS(:, :, s) = predictedScoresSwarm{i, s};
             predictedLabelsS(:, s) = predictedLabelsSwarm{i, s};
         end
-        nCatMatches = countcats(predictedLabelsS, 2);
-        [MaxCountLabels, MI] = max(nCatMatches, [], 2);
-        predictedLabelsCat = (categories(predictedLabelsS));
-        predictedLabels = predictedLabelsCat(MI);
+
+        [predictedLabels, predictedScores, predictedLabelsCat, predictedLabelSuper, predictedLabelScoreSuper] = ensemblePredictedLabels(...
+            predictedLabelsS, predictedScoresS, supervisorPredictedScores(k,:), 1, nClasses);
+
+        %nCatMatches = countcats(predictedLabelsS, 2);
+        %[MaxCountLabels, MI] = max(nCatMatches, [], 2);
+        %predictedLabelsCat = (categories(predictedLabelsS));
+        %predictedLabels = predictedLabelsCat(MI);
     
-        predictedScores = mean(predictedScoresS, 3);
+        %predictedScores = mean(predictedScoresS, 3);
 
-        dCatMatches = abs(nCatMatches(1,:) - round(supervisorPredictedScores(k, 1)));
-        [minDistVotes, DI] = sort(dCatMatches, 2, 'ascend');
+        %dCatMatches = abs(nCatMatches(1,:) - round(supervisorPredictedScores(k, 1)));
+        %[minDistVotes, DI] = sort(dCatMatches, 2, 'ascend');
 
-        predictedLabelScores = zeros([nModels 1]);
-        dMin = minDistVotes(1);
-        for l=1:nClasses
-            if minDistVotes(l) > dMin
-                break;
-            end
-            predictedLabelScores(l) = mean(predictedScoresS(1, DI(l), predictedLabelsS(1,:) == predictedLabelsCat(DI(l))));
-        end
-        [predictedLabelScoreSuper, PI] = max(predictedLabelScores, [], 1);
-        predictedLabelSuper = predictedLabelsCat(DI(PI));
+        %predictedLabelScores = zeros([nModels 1]);
+        %dMin = minDistVotes(1);
+        %for l=1:nClasses
+        %    if minDistVotes(l) > dMin
+        %        break;
+        %    end
+        %    predictedLabelScores(l) = mean(predictedScoresS(1, DI(l), predictedLabelsS(1,:) == predictedLabelsCat(DI(l))));
+        %end
+        %[predictedLabelScoreSuper, PI] = max(predictedLabelScores, [], 1);
+        %predictedLabelSuper = predictedLabelsCat(DI(PI));
 
 
         correctClass = testSets{i}.Labels(j);
@@ -510,7 +496,8 @@ for i=1:nMakeups
         fprintf(fd, "\n");
 
 
-        % Ask Oracle if in doubt
+        % Ask Oracle if in doubt (prediction trust score is below threshold
+        % trust score)
         difPredLabel = supervisorPredictedScores(k, 2) - supervisorPredictedScores(k, 1);
         if (((mcmcF == 0) && (supervisorPredictedScores(k, 1) < supervisorPredictedScores(k, 2)) && (nOracleAnsw/k < nOrcaleLimit)) ||...
                 ((mcmcF == 1) && (difPredLabel > difPredLabelMax)))... 
@@ -554,162 +541,7 @@ for i=1:nMakeups
     
 end
 
-%% Sorted activations of model candidates
-%[ActTC, IT] = sort(ActT, 2, 'descend');
 
-%StrongT(:, :) = ActTC(:, 1, :);
-
-%% Sort other models by their strongest softmax 
-%[StrongTC, IStrongT] = sort(StrongT, 2, 'descend');
-
-% And sort their softmax activations in the same way as activations
-% in the model with strongest right softmax
-%for k=1:nImgsTot
-      
-%    for si=1:nModels
-        
-%        s = IStrongT(k, si);
-%        ActTS(k, nClasses*(si-1)+1:nClasses*si) = ActT(k, IT(k, :, IStrongT(k, 1)), s);
-        
-%    end
-%    VerdTS(k,1) = sum(VerdT(k, :), 2);
-%    ActTS(k, nClasses*nModels+dimLabel) = VerdTS(k,1);
-%end
-
-%[ActTS, VerdTS] = makeUSDstrong(ActT, VerdT, ActTS, VerdTS, nClasses, 0, nImgsTot, nModels);
-   
-%%         
-%sOptions2 = trainingOptions('adam', ...
-%        'ExecutionEnvironment','auto',...
-%        'Shuffle', 'every-epoch',...
-%        'MiniBatchSize', 1, ...
-%        'InitialLearnRate',0.01, ...
-%        'MaxEpochs',200, ...
-%        'Verbose',true);%, ...
-        %'Plots','training-progress');
-
-% Supervisor network
-%supervisorPredictedScores = zeros([nImgsTot nCLOut]);
-
-
-nImgsCur = 0;
-for i=1:nMakeups 
-    clear('predictedScoresS');
-    clear('predictedLabelsS');
-    
-    fprintf('----> Super Makeup # %d/%d\n', i, nMakeups);
-
-    for s=1:nModels 
-        predictedScoresS(:, :, s) = predictedScoresSwarm{i, s};
-        predictedLabelsS(:, s) = predictedLabelsSwarm{i, s};
-    end
-    
-    % Ensemble voting
-    nCatMatches = countcats(predictedLabelsS, 2);
-    [MaxCountLabels, MI] = max(nCatMatches, [], 2);
-    predictedLabelsCat = (categories(predictedLabelsS));
-    predictedLabels = predictedLabelsCat(MI);
-    
-    predictedScores = mean(predictedScoresS, 3);
-        
-    [nImages, ~] = size(testSets{i}.Files);
-    %%supervisorPredictedScores(1+nImgsCur:nImgsCur+nImages,:) = predict(super2Net, ActTS(1+nImgsCur:nImgsCur+nImages, :));
-
-    for k=1:nImages
-
-        supervisorPredictedScores(nImgsCur+k,:) = predict(super2Net, ActTS(nImgsCur+k, :));
-
-        % find label with number of occurance as predicted by superNet
-        dCatMatches = abs(nCatMatches(k,:) - round(supervisorPredictedScores(nImgsCur+k, 1)));
-        [minDistVotes, DI] = sort(dCatMatches, 2, 'ascend');
-
-        predictedLabelScores = zeros([nModels 1]);
-        dMin = minDistVotes(1);
-        for l=1:nClasses
-            if minDistVotes(l) > dMin
-                break;
-            end
-            predictedLabelScores(l) = mean(predictedScoresS(k, DI(l), predictedLabelsS(k,:) == predictedLabelsCat(DI(l))));
-        end
-        [predictedLabelScoreSuper, PI] = max(predictedLabelScores, [], 1);
-        predictedLabelSuper = predictedLabelsCat(DI(PI));
-
-
-        correctClass = testSets{i}.Labels(k);
-        predictedLabel = predictedLabels{k};
-
-        idxsPredictedCat = find(predictedLabelsCat == categorical(predictedLabels(k)));
-        idxsWonModels = predictedLabelsS(k,:) == predictedLabels(k,:);
-        predictedLabelScore = mean(predictedScoresS(k, idxsPredictedCat, idxsWonModels));
-
-
-        fprintf(fd, "%s %f %s %s %f %f %f %d %d %d %f %s", correctClass, predictedLabelScore, predictedLabel, predictedLabelSuper{1},...
-            supervisorPredictedScores(nImgsCur+k, 1),...
-            TrTrain,...
-            supervisorPredictedScores(nImgsCur+k, 2),...
-            supervisorPredictedScores(nImgsCur+k, 1) > (nEnsLabels-1)/2.,...
-            supervisorPredictedScores(nImgsCur+k, 1) > TrTrain,...
-            supervisorPredictedScores(nImgsCur+k, 1) > supervisorPredictedScores(nImgsCur+k, 2),...
-            VerdTS(nImgsCur+k, 1),...
-            testSets{i}.Files{k});
-        for l=1:nClasses
-            fprintf(fd, " %f", predictedScores(k, l));
-        end
-        fprintf(fd, "\n");
-
-        % Naive continous learning, retrain every prediction
-        %sLayers = super2Net.Layers;
-        %sgraph = layerGraph(sLayers);
-        %super2Net = trainNetwork(ActTS(nImgsCur+k, :), VerdTS(nImgsCur+k, :), sgraph, sOptions2);
-        
-    end
-    
-    % Naive continous learning, retrain by grooup in intervals
-    %%sLayers = super2Net.Layers;
-    %%sgraph = layerGraph(sLayers);
-    %%super2Net = trainNetwork(ActTS(1+nImgsCur:nImgsCur+nImages, :), VerdTS(1+nImgsCur:nImgsCur+nImages, :), sgraph, sOptions2);
-
-    nImgsCur = nImgsCur + nImages;
-    
-    [tmpStr, ~] = strsplit(testSets{i}.Files{1}, '/');
-    fprintf("%s", tmpStr{1,7}); 
-    mean(predictedScores)
-    
-    
-    %% Compute average accuracy
-    meanMkAcc = mean(predictedLabels == testSets{i}.Labels);
-    mkTable{i,1} = testDataSetFolders(i);
-    mkTable{i,2} = meanMkAcc;
-    
-    %%
-    [tn, ~] = size(testSets{i}.Files);
-    
-    meanMkConf = zeros(1, nClasses);
-
-    maxAccCat = '';
-    maxAcc = 0;
-    
-    %%    
-    j = 1;   
-    for j = 1:nClasses
-
-        tmpStr = strings(tn,1);
-        tmpStr(:) = string(labels(j));
-    
-        meanMkConf(j) = mean(string(predictedLabels) == tmpStr);
-        mkTable{i, 4+j} = meanMkConf(j);
-        
-        %find the best category match
-        if maxAcc <= meanMkConf(j)
-            maxAccCat = tmpStr(j);
-            maxAcc = meanMkConf(j);
-        end
-        
-    end
-    mkTable{i,3} = maxAccCat;
-    mkTable{i,4} = maxAcc;
-    
-end
 
 %% Results
 varNames = cellstr(['TestFolder' 'Accuracy' 'BestGuess' 'GuessScore' string(labels)']);
