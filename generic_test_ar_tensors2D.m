@@ -1,4 +1,4 @@
-function [X2, Xc2, Xr2, Xs2, Ys2, Ysh2, Yshs2, Y2, Yh2, Yhs2, Bti, Bto, Sx2, Sy2, k_tob] = generic_test_tensors2D(M, x_off, x_in, t_in, y_off, y_out, t_out, l_sess, l_test, t_sess, sess_off, offset, norm_fli, norm_flo, Bi, Bo, k_tob)
+function [X2, Xc2, Xr2, Y2s, Y2, Yh2, Yhs2, Bti, Bto, Sx2, Sy2, k_tob] = generic_test_ar_tensors2D(M, x_off, x_in, t_in, y_off, y_out, t_out, n_xy, l_sess, l_test, t_sess, sess_off, offset, norm_fli, norm_flo, Bi, Bo, k_tob)
     %% Test regression ANN
     if(k_tob == 0)
         [m,~] = size(M);
@@ -9,22 +9,18 @@ function [X2, Xc2, Xr2, Xs2, Ys2, Ysh2, Yshs2, Y2, Yh2, Yhs2, Bti, Bto, Sx2, Sy2
     end
 
     m_in = x_in * t_in;
-    n_out = y_out * t_out;
-    %n_in = y_out * t_in;
+    n_out = n_xy * t_out; %y_out * t_out;
+    n_in = y_out * t_in;
 
     X2 = zeros([m_in, k_tob, t_sess-sess_off]);
     Xc2 = zeros([m_in, 1, 1, k_tob, t_sess-sess_off]);
-    Xr2 = ones([m_in+1, k_tob, t_sess-sess_off]);
-    Xs2 = zeros([x_in, t_in, k_tob, t_sess-sess_off]);
-    Ys2 = zeros([y_out, t_out, k_tob, t_sess-sess_off]);
-    Ysh2 = zeros([y_out, t_out, k_tob, t_sess-sess_off]);
-    Yshs2 = zeros([y_out, t_out, k_tob, t_sess-sess_off]);
-    %Y2s = zeros([n_in, k_tob, t_sess-sess_off]);
+    Xr2 = ones([m_in+1, k_tob, t_sess]);
+    Y2s = zeros([n_in, k_tob, t_sess-sess_off]);
     Y2 = zeros([n_out, k_tob, t_sess-sess_off]);
     Yh2 = zeros([n_out, k_tob, t_sess-sess_off]);
     Yhs2 = zeros([n_out, k_tob, t_sess-sess_off]);
     Bti = zeros([4, x_in, k_tob, t_sess-sess_off]);
-    Bto = zeros([4, y_out, k_tob, t_sess-sess_off]);
+    Bto = zeros([4, n_xy, k_tob, t_sess-sess_off]);
 
     %Segment boundaries
     Sx2 = zeros([2, k_tob, t_sess-sess_off]);
@@ -42,22 +38,21 @@ function [X2, Xc2, Xr2, Xs2, Ys2, Ysh2, Yshs2, Y2, Yh2, Yhs2, Bti, Bto, Sx2, Sy2
             Sx2(1,j,i) = st_idx;
             Sx2(2,j,i) = end_idx;
 
-            %Normalize test data (both input and output) on input period
             Mw = M(st_idx:end_idx, x_off+1:x_off+x_in);
             [Bti(1,:,j,i), Bti(2,:,j,i)] = bounds(Mw,1);
             Bti(3,:,j,i) = mean(Mw,1);
             Bti(4,:,j,i) = std(Mw,0,1);
-            
-            Myw = M(st_idx:end_idx, y_off+1:y_off+y_out);
+
+            Myw = M(st_idx:end_idx, x_off+1:x_off+n_xy);
             [Bto(1,:,j,i), Bto(2,:,j,i)] = bounds(Myw,1);
             Bto(3,:,j,i) = mean(Myw,1);
             Bto(4,:,j,i) = std(Myw,0,1);
+
 
             Mx = reshape( Mw', [m_in,1] );
             X2(1:m_in, j, i) = Mx(:);
             Xc2(1:m_in, 1, 1, j, i) = Mx(:);
             Xr2(1:m_in, j, i) = Mx(:);
-            Xs2(:,:,j,i) = Mw';
 
 
             st_idx = idx+t_in;
@@ -65,17 +60,14 @@ function [X2, Xc2, Xr2, Xs2, Ys2, Ysh2, Yshs2, Y2, Yh2, Yhs2, Bti, Bto, Sx2, Sy2
             Sy2(1,j,i) = st_idx;
             Sy2(2,j,i) = end_idx;
 
-            Myw = M(st_idx:end_idx, y_off+1:y_off+y_out);
+            Myw = M(st_idx:end_idx, x_off+1:x_off+n_xy);
             My = reshape( Myw', [n_out,1] );
             Yh2(:, j, i) = My(:);
 
             %[Bto(1,:,j,i), Bto(2,:,j,i)] = bounds(Myw,1);
 
-            %My = reshape( Myw', [n_out,1] );
+            My = reshape( Myw', [n_out,1] );
             Yhs2(:, j, i) = My(:);
-
-            Ysh2(:,:, j, i) = Myw';
-            Yshs2(:,:, j, i) = Myw';
         end
 
         if(norm_fli)
@@ -98,7 +90,6 @@ function [X2, Xc2, Xr2, Xs2, Ys2, Ysh2, Yshs2, Y2, Yh2, Yhs2, Bti, Bto, Sx2, Sy2
                 X2(1:m_in, j, i) = Mx(:);
                 Xc2(1:m_in, 1, 1, j, i) = Mx(:);
                 Xr2(1:m_in, j, i) = Mx(:);
-                Xs2(:,:,j,i) = Mw';
              end
         end
         
@@ -107,7 +98,7 @@ function [X2, Xc2, Xr2, Xs2, Ys2, Ysh2, Yshs2, Y2, Yh2, Yhs2, Bti, Bto, Sx2, Sy2
                 % extract and scale observation sequence
                 idx = (i+sess_off)*l_sess + (j-1)*t_out + 1 + offset - t_in;
 
-                Myw = M(idx+t_in:idx+t_in+t_out-1, y_off+1:y_off+y_out);
+                Myw = M(idx+t_in:idx+t_in+t_out-1, x_off+1:x_off+n_xy);
                 % bounds over session
                 MeanSesso = Bto(3,:,j,i);
                 StdSesso = Bto(4,:,j,i);
@@ -120,8 +111,6 @@ function [X2, Xc2, Xr2, Xs2, Ys2, Ysh2, Yshs2, Y2, Yh2, Yhs2, Bti, Bto, Sx2, Sy2
 
                 My = reshape( Myw', [n_out,1] );
                 Yhs2(:, j, i) = My(:);
-
-                Yshs2(:,:, j, i) = Myw';
             end
         end
 

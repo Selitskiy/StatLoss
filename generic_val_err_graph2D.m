@@ -1,4 +1,4 @@
-function generic_seq_err_graph2D(M, Em, l_m, Y2, Sy2, l_y, l_sess, x_off, x_in, t_in, y_off, y_out, t_out, n_xy, k_tob, t_sess, sess_off, offset, k_start, modelName)
+function generic_val_err_graph2D(M, Em, l_m, Y2, Sy2, l_y, l_sess, x_off, x_in, t_in, y_off, y_out, t_out, n_xy, k_tob, t_sess, sess_off, offset, k_start, modelName)
     
     %m_in = x_in * t_in;
     legItems = strings(0);
@@ -31,7 +31,7 @@ function generic_seq_err_graph2D(M, Em, l_m, Y2, Sy2, l_y, l_sess, x_off, x_in, 
 
         for j = 1:k_tob
             Myw = Y2(:, :, j, i)';
-            M3(Sy2(1,j,i):Sy2(2,j,i), x_off+1:x_off+n_xy) = Myw;
+            M3(Sy2(1,j,i):Sy2(2,j,i), y_off+1:y_off+y_out) = Myw;
         end
 
         for k = 1:y_out
