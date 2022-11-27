@@ -1,7 +1,12 @@
-function [E2f, S2, S2Mean, S2Std, S2s, ma_err, sess_ma_idx, ob_ma_idx, mi_err, sess_mi_idx, ob_mi_idx]=generic_calc_rmse2D(Y2, Yh2, n_out)
+function [E2f, S2, S2Mean, S2Std, S2s, ma_err, sess_ma_idx, ob_ma_idx, mi_err, sess_mi_idx, ob_mi_idx]=generic_calc_cont_rmse2D(Y2, Yh2, n_out, y_out)
+
+    [~, ktob, nsess]=size(Y2);
+    E2f = zeros([y_out, ktob-1, nsess]);
   
-    %E2f(:, :, :) = ((Y2(1:n_out, :, :) - Yh2(1:n_out, :, :)) ./ Yh2(1:n_out, :, :)).^2;
-    E2f(:, :, :) = ((Y2(1:n_out, :, :) - Yh2(1:n_out, :, :))).^2;
+    for j=2:ktob
+        E2f(:, j-1, :) = ((Y2(1:y_out, j, :) - Y2(1+n_out-y_out:n_out, j-1, :))).^2;
+    end
+    
     [skf, sjf, sif] = size(E2f);
     S2 = sum(E2f, 'all');
     Sn2 = skf*sjf*sif;

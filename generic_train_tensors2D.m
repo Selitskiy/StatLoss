@@ -10,7 +10,7 @@ function [X, Xc, Xr, Xs, Ys, Y, Bi, Bo, XI, C, Sx, Sy, k_ob] = generic_train_ten
     % Re-format input into session tensor
     % ('ones' (not 'zeros') for X are for bias 'trick'
     X = zeros([m_in, k_ob, n_sess]);
-    Xc = zeros([m_in, 1, 1, k_ob, n_sess]);
+    Xc = zeros([x_in, t_in, 1, k_ob, n_sess]);
     Xr = ones([m_in+1, k_ob, n_sess]);
     Xs = zeros([x_in, t_in, k_ob, n_sess]);
     Ys = zeros([y_out, t_out, k_ob, n_sess]);
@@ -51,8 +51,8 @@ function [X, Xc, Xr, Xs, Ys, Y, Bi, Bo, XI, C, Sx, Sy, k_ob] = generic_train_ten
 
             Mx = reshape( Mxw', [m_in,1] );
             X(1:m_in, j, i) = Mx(:);
-            Xc(1:m_in, 1, 1, j, i) = Mx(:);
             Xr(1:m_in, j, i) = Mx(:);
+            Xc(:, :, 1, j, i) = Mxw';
             Xs(:,:,j,i) = Mxw';
 
 
@@ -93,7 +93,7 @@ function [X, Xc, Xr, Xs, Ys, Y, Bi, Bo, XI, C, Sx, Sy, k_ob] = generic_train_ten
 
         idx = (i-1)*l_sess;
 
-        %Normalize input and output on the same training-only interval
+        %Normalize input and output on the same training-only input interval
         st_idx = idx+1;
         %end_idx = idx+k_ob+t_in-1;
         end_idx = idx+k_ob+t_out-1;
@@ -103,19 +103,13 @@ function [X, Xc, Xr, Xs, Ys, Y, Bi, Bo, XI, C, Sx, Sy, k_ob] = generic_train_ten
         [Bi(1,:,i), Bi(2,:,i)] = bounds(Mxw,1);
         Bi(3,:,i) = mean(Mxw,1);
         Bi(4,:,i) = std(Mxw,0,1);
-            
-        %st_idx = idx+2;
-        %end_idx = idx+k_ob+t_in;
-        %end_idx = idx+k_ob+t_out;
+         
 
-        %Myw = M(st_idx:end_idx, y_off+1:y_off+y_out);
-        %[Bos(1,:,i), Bos(2,:,i)] = bounds(Myw,1);
-        %Bos(3,:,i) = mean(Myw,1);
-        %Bos(4,:,i) = std(Myw,0,1);
-            
-        st_idx = idx+1+t_in;
-        %end_idx = idx+k_ob+t_in+t_out-1;
-        end_idx = idx+k_ob+t_out-1;
+        %Normalize input and output on the same training-only interval
+        %separately for inpout and label-output
+        %st_idx = idx+1+t_in;
+        %%end_idx = idx+k_ob+t_in+t_out-1;
+        %end_idx = idx+k_ob+t_out-1;
 
         Myw = M(st_idx:end_idx, y_off+1:y_off+y_out);
         [Bo(1,:,i), Bo(2,:,i)] = bounds(Myw,1);
@@ -142,8 +136,8 @@ function [X, Xc, Xr, Xs, Ys, Y, Bi, Bo, XI, C, Sx, Sy, k_ob] = generic_train_ten
 
                 Mx = reshape( Mxw', [m_in,1] );
                 X(1:m_in, j, i) = Mx(:);
-                Xc(1:m_in, 1, 1, j, i) = Mx(:);
                 Xr(1:m_in, j, i) = Mx(:);
+                Xc(:, :, 1, j, i) = Mxw';
                 Xs(:,:,j,i) = Mxw';
                 
 
@@ -157,22 +151,6 @@ function [X, Xc, Xr, Xs, Ys, Y, Bi, Bo, XI, C, Sx, Sy, k_ob] = generic_train_ten
             for j = 1:k_ob
                 % extract and scale observation sequence
                 idx = (i-1)*l_sess + j;
-            
-                %Myw = M(idx+1:idx+t_in, y_off+1:y_off+y_out);
-                % bounds over session
-                %MinSessos = min( Bos(1,:,:,i), [], 3); 
-                %MaxSessos = max( Bos(2,:,:,i), [], 3);
-                %MeanSessos = mean( Bos(3,:,:,i), 3);
-                %StdSessos = mean( Bos(4,:,:,i), 3);
-                %MeanSessos = Bos(3,:,i);
-                %StdSessos = Bos(4,:,i);
-
-                %Myw = generic_mean_std_scale2D(Myw, MeanSessos, StdSessos);
-                %Myw = generic_mean_minmax_scale2D(Myw, MeanSessos, MinSessos, MaxSessos);
-                %Myw = generic_minmax_scale2D(Myw, MinSessos, MaxSessos);
-
-                %My = reshape( Myw', [n_in,1] );
-                %Ys(:, j, i) = My(:);
                 
 
                 Myw = M(idx+t_in:idx+t_in+t_out-1, y_off+1:y_off+y_out);
