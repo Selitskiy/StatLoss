@@ -542,9 +542,4 @@ for i=1:nMakeups
 end
 
 
-
-%% Results
-varNames = cellstr(['TestFolder' 'Accuracy' 'BestGuess' 'GuessScore' string(labels)']);
-cell2table(mkTable, 'VariableNames', varNames)
-
 fclose(fd);

@@ -21,7 +21,7 @@ in_test <- read.delim(in_name, sep = "", header = T, na.strings = " ", fill = T)
 mr <- nrow(in_test)
 
 # Grouped/Structured test data
-in_name2 <- "predict_in_6bmsrTr7cs0.001a.txt"
+in_name2 <- "predict_in_6bmsrTr7c0.001a.txt"
 in_test2 <- read.delim(in_name2, sep = "", header = T, na.strings = " ", fill = T)
 
 # Continuous data for accuracy/threshold graph
