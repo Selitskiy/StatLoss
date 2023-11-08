@@ -261,8 +261,10 @@ Yt = categorical(VerdS');
 
     %sup_name = 'relu';
     %sup_name = 'tanh';
-    sup_name = 'sig';
-
+    %sup_name = 'sig';
+    %sup_name = 'gelu';
+    %sup_name = 'lrrelu';
+    sup_name = 'crelu';
 
     sLayers = [
         featureInputLayer(nClasses*nModels+dimLabel)
@@ -270,8 +272,14 @@ Yt = categorical(VerdS');
         %fullyConnectedM1ReluLayer("L2", nLayer1, dimLabel, nLayer2)
         %fullyConnectedM1TanhLayer("L1", nClasses*nModels+dimLabel, dimLabel, nLayer1)
         %fullyConnectedM1TanhLayer("L2", nLayer1, dimLabel, nLayer2)
-        fullyConnectedM1SigLayer("L1", nClasses*nModels+dimLabel, dimLabel, nLayer1)
-        fullyConnectedM1SigLayer("L2", nLayer1, dimLabel, nLayer2)
+        %fullyConnectedM1SigLayer("L1", nClasses*nModels+dimLabel, dimLabel, nLayer1)
+        %fullyConnectedM1SigLayer("L2", nLayer1, dimLabel, nLayer2)
+        %fullyConnectedM1GeluLayer("L1", nClasses*nModels+dimLabel, dimLabel, nLayer1)
+        %fullyConnectedM1GeluLayer("L2", nLayer1, dimLabel, nLayer2)
+        %fullyConnectedM1LrReluLayer("L1", nClasses*nModels+dimLabel, dimLabel, nLayer1, 1)
+        %fullyConnectedM1LrReluLayer("L2", nLayer1, dimLabel, nLayer2, 1)
+        fullyConnectedM1CreluLayer("L1", nClasses*nModels+dimLabel, dimLabel, nLayer1)
+        fullyConnectedM1CreluLayer("L2", nLayer1, dimLabel, nLayer2)
         fullyConnectedCLLayer("L3", nLayer2, dimLabel, nRealCLOut, nCLOut, nEnsLabels, nMem)
         TCLmRegression("L4", dimLabel, nMem)
     ];
@@ -446,7 +454,7 @@ for i=1:nMakeups
 
 
 
-        %% Walk through model Swarm
+        % Walk through model Swarm
         %par
         for s=1:nModels 
             % Test main network performance
@@ -465,6 +473,17 @@ for i=1:nMakeups
         % Make Uncertainty Shape Descriptor
         [ActTS, VerdTS] = makeUSDstrong(ActT, VerdT, ActTS, VerdTS, nClasses, k, 0, nModels, dimLabel);
         supervisorPredictedScores(k,:) = predict(super2Net, ActTS(k, :));
+
+        % Unbcertainty Descriptor visualization
+        if ActTS(k,end) < 2
+            bar(ActTS(k,1:nClasses*nModels));
+            %stairs(ActTS(k,1:nClasses*nModels));
+            ax = gca;
+            ax.FontSize = 20;
+            xlabel('Sorted activations', 'FontSize', 20);
+            ylabel('Activation value', 'FontSize', 20);
+        end
+        %
 
         % Find label with number of occurance as predicted by superNet
         % Ensemble voting
